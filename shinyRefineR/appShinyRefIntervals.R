@@ -5,8 +5,9 @@ library(shinythemes)
 library(memoise)
 library(cachem)
 
+
 # set working directory ----------------------------------------------------
-#setwd("C:/R_local/labStat")
+setwd("C:/R_local/ReferenceIntRvals")
 
 
 # import rds data ---------------------------------------------------------
@@ -21,7 +22,7 @@ ui <- fluidPage(
     title = div(img(src="logo_pos.png",  
                     height = 28, 
                     width = 130, 
-                    style = "margin:1px 3px", "  Klinische Chemie ")
+                    style = "margin:1px 3px", "  Reference Interval Calculator ")
     ), 
     theme = shinytheme("paper"), 
     collapsible = TRUE,
@@ -29,7 +30,7 @@ ui <- fluidPage(
     
 #  tabPanel  ------------------------------------------------
     
-    tabPanel("Reference Interval Calculator", "Clinical Chemistry",
+    tabPanel("Clinical Chemistry", "",
   sidebarLayout(
     sidebarPanel(
       selectInput("analyte", "Select Analyte:", choices = unique(Combined_Data_KC$Bezeichnung))
@@ -47,7 +48,8 @@ ui <- fluidPage(
   )
 )
 # Define server
-server <- function(input, output) {
+server <- function(input, output, session) {
+  session$cache <- cache_mem(max_size = 4000e6)
   output$refIntervalOutput <- renderPrint({
     # Filter the dataframe based on the selected analyte
     filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
