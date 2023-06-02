@@ -41,7 +41,8 @@ ui <- fluidPage(navbarPage(
         "analyte",
         "Select Analyte:",
         choices = unique(Combined_Data_KC$Bezeichnung)
-      )
+      ),
+      textOutput("dateRangeOutput")
     ),
     mainPanel(
       fluidRow(
@@ -61,6 +62,17 @@ ui <- fluidPage(navbarPage(
 # Define server
 server <- function(input, output, session) {
   session$cache <- cache_mem(max_size = 4000e6)
+  
+  dateRange <- reactive({
+    Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
+  })
+  
+  output$dateRangeOutput <- renderText({
+    minDate <- min(dateRange()$Datum)
+    maxDate <- max(dateRange()$Datum)
+    paste("Date Range:", minDate, "to", maxDate, "\n unique FID")
+  })
+  
   refIntervalBoth <- reactive({
     # Filter the dataframe based on the selected analyte
     filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
