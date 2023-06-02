@@ -17,72 +17,69 @@ setwd("C:/R_local/ReferenceIntRvals")
 shinyOptions(cache = cache_mem(max_size = 5000e6))
 
 # Define UI
-ui <- fluidPage(
-  navbarPage(
-    title = div(img(src="logo_pos.png",  
-                    height = 28, 
-                    width = 130, 
-                    style = "margin:1px 3px", "  Reference Interval Calculator ")
-    ), 
-    theme = shinytheme("paper"), 
-    collapsible = TRUE,
-    fluid = TRUE,
-    
-#  tabPanel  ------------------------------------------------
-    
-    tabPanel("Clinical Chemistry", "",
-  sidebarLayout(
-    sidebarPanel(
-      selectInput("analyte", "Select Analyte:", choices = unique(Combined_Data_KC$Bezeichnung))
-    ),
-    mainPanel(
-      fluidRow(
-        column(6, verbatimTextOutput("refIntervalOutput")),
-        column(6, plotOutput("refIntervalPlot"))
-      )
-      
-      
-          )
-      )
+ui <- fluidPage(navbarPage(
+  title = div(
+    img(
+      src = "logo_pos.png",
+      height = 28,
+      width = 130,
+      style = "margin:1px 3px",
+      "  Reference Interval Calculator "
     )
+  ),
+  theme = shinytheme("paper"),
+  collapsible = TRUE,
+  fluid = TRUE,
+  
+  #  tabPanel  ------------------------------------------------
+  
+  tabPanel(
+    "Clinical Chemistry",
+    "",
+    sidebarLayout(sidebarPanel(
+      selectInput(
+        "analyte",
+        "Select Analyte:",
+        choices = unique(Combined_Data_KC$Bezeichnung)
+      )
+    ),
+    mainPanel(fluidRow(
+      column(9, verbatimTextOutput("refIntervalOutput"))
+    ),
+    fluidRow(
+      column(9, plotOutput("refIntervalPlot"))
+    )))
   )
-)
+))
+
+
 # Define server
 server <- function(input, output, session) {
   session$cache <- cache_mem(max_size = 4000e6)
-  output$refIntervalOutput <- renderPrint({
+  refInterval <- reactive({
     # Filter the dataframe based on the selected analyte
-    filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
+    filteredData <-
+      Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte,]
     
     # Filter the filteredData to retain unique rows based on "b_Fallnummer"
-    uniqueData <- filteredData[!duplicated(filteredData$b_Fallnummer),]
+    uniqueData <-
+      filteredData[!duplicated(filteredData$b_Fallnummer), ]
     
     # Extract the values for the reference interval calculation
     values <- uniqueData$Werte
     
     # Calculate the reference interval using refineR
-    refInterval <- findRI(Data = values)
-    
+    findRI(Data = values)
+  })
+  
+  output$refIntervalOutput <- renderPrint({
     # Output the reference interval
-    paste0("Reference Interval for", input$analyte, ":")
-    print(refInterval)
+    print(refInterval())
   })
   
   output$refIntervalPlot <- renderPlot({
-    # Filter the dataframe based on the selected analyte
-    filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
-    
-    # Filter the filteredData to retain unique rows based on "b_Fallnummer"
-    uniqueData <- filteredData[!duplicated(filteredData$b_Fallnummer),]
-    
-    # Extract the values for the reference interval calculation
-    values <- uniqueData$Werte
-    
-    # Calculate the reference interval using refineR
-    refInterval <- findRI(Data = values)
-    
     # Plot the reference interval
-    plot(refInterval)
+    plot(refInterval())
   })
 }
 
