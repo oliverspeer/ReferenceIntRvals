@@ -12,7 +12,7 @@ setwd("C:/R_local/ReferenceIntRvals")
 
 # import rds data ---------------------------------------------------------
 
-#combined_data_kc <- readRDS("Combined_Data_KC.rds")
+#Combined_Data_KC <- readRDS("C:/R_local/labStat/Combined_Data_KC.rds")
 
 shinyOptions(cache = cache_mem(max_size = 5000e6))
 
@@ -46,6 +46,11 @@ ui <- fluidPage(navbarPage(
     ),
     mainPanel(
       fluidRow(
+        column(4, verbatimTextOutput("UnitOutput")),
+        column(4, verbatimTextOutput("URIOutputM")),
+        column(4, verbatimTextOutput("URIOutputF"))
+      ),
+     fluidRow(
         column(4, verbatimTextOutput("refIntervalOutputBoth")),
         column(4, verbatimTextOutput("refIntervalOutputM")),
         column(4, verbatimTextOutput("refIntervalOutputF"))
@@ -73,6 +78,28 @@ server <- function(input, output, session) {
     paste("Date Range:", minDate, "to", maxDate, "\n unique FID")
   })
   
+  output$UnitOutput <- renderText({
+    Unit <- unique(dateRange()$EINHEIT)
+    paste(input$analyte,"(",Unit,")\nall genders\n \n \n ")
+  })
+  
+  output$URIOutputM <- renderText({
+    low <- unique(dateRange()$`REF_UNTEN M`)
+    high <- unique(dateRange()$`REF_OBEN M`)
+    Unit <- unique(dateRange()$EINHEIT)
+    paste(input$analyte,"(",Unit,")\nmale\nZLM\nlower limit",low,"\nupper limit",high)
+
+  })
+  
+  output$URIOutputF <- renderText({
+    lowf <- unique(dateRange()$`REF_UNTEN W`)
+    highf <- unique(dateRange()$`REF_OBEN W`)
+    Unit <- unique(dateRange()$EINHEIT)
+    paste(input$analyte,"(",Unit,")\nfemale\nZLM\nlower limit",lowf,"\nupper limit",highf)
+    
+  })
+  
+  
   refIntervalBoth <- reactive({
     # Filter the dataframe based on the selected analyte
     filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
@@ -86,8 +113,8 @@ server <- function(input, output, session) {
   
   refIntervalM <- reactive({
     filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte & Combined_Data_KC$f_Geschl. == "M", ]
-    uniqueData <- filteredData[!duplicated(filteredData$b_Fallnummer),]
-    values <- uniqueData$Werte
+    uniqueDataM <- filteredData[!duplicated(filteredData$b_Fallnummer),]
+    values <- uniqueDataM$Werte
     findRI(Data = values)
   })
   
@@ -99,17 +126,14 @@ server <- function(input, output, session) {
   })
   
   output$refIntervalOutputBoth <- renderPrint({
-    cat(input$analyte, "(all genders)\n -------------------------------------")
     print(refIntervalBoth())
   })
   
   output$refIntervalOutputM <- renderPrint({
-    cat(input$analyte, "(male)\n -------------------------------------")
     print(refIntervalM())
   })
   
   output$refIntervalOutputF <- renderPrint({
-    cat(input$analyte, "(female)\n -------------------------------------")
     print(refIntervalF())
   })
   
