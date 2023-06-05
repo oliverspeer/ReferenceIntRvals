@@ -2,6 +2,7 @@ library(shiny)
 library(refineR)
 library(tidyverse)
 library(shinythemes)
+library(shinycssloaders)
 library(memoise)
 library(cachem)
 
@@ -46,7 +47,7 @@ ui <- fluidPage(navbarPage(
     ),
     mainPanel(
       fluidRow(
-        column(4, verbatimTextOutput("UnitOutput")),
+        column(4, verbatimTextOutput("UnitOutput")|>  withSpinner()),
         column(4, verbatimTextOutput("URIOutputM")),
         column(4, verbatimTextOutput("URIOutputF"))
       ),
@@ -87,7 +88,7 @@ server <- function(input, output, session) {
     low <- unique(dateRange()$`REF_UNTEN M`)
     high <- unique(dateRange()$`REF_OBEN M`)
     Unit <- unique(dateRange()$EINHEIT)
-    paste(input$analyte,"(",Unit,")\nmale\nZLM\nlower limit",low,"\nupper limit",high)
+    paste(input$analyte,"(",Unit,")\nmale\nrecent ZLM ref. int.:\nlower limit",low,"\nupper limit",high)
 
   })
   
@@ -95,7 +96,7 @@ server <- function(input, output, session) {
     lowf <- unique(dateRange()$`REF_UNTEN W`)
     highf <- unique(dateRange()$`REF_OBEN W`)
     Unit <- unique(dateRange()$EINHEIT)
-    paste(input$analyte,"(",Unit,")\nfemale\nZLM\nlower limit",lowf,"\nupper limit",highf)
+    paste(input$analyte,"(",Unit,")\nfemale\nrecent ZLM ref. int.:\nlower limit",lowf,"\nupper limit",highf)
     
   })
   
