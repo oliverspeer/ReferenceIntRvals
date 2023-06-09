@@ -5,6 +5,7 @@ library(shinythemes)
 library(shinycssloaders)
 library(memoise)
 library(cachem)
+library(vroom)
 
 
 # set working directory ----------------------------------------------------
@@ -43,11 +44,12 @@ ui <- fluidPage(navbarPage(
         "Select Analyte:",
         choices = unique(Combined_Data_KC$Bezeichnung)
       ),
-      textOutput("dateRangeOutput")
+      textOutput("dateRangeOutput"),
+      downloadButton("downloadData", "Download Data")
     ),
     mainPanel(
       fluidRow(
-        column(4, verbatimTextOutput("UnitOutput")|>  withSpinner()),
+        column(4, verbatimTextOutput("UnitOutput")),
         column(4, verbatimTextOutput("URIOutputM")),
         column(4, verbatimTextOutput("URIOutputF"))
       ),
@@ -57,7 +59,9 @@ ui <- fluidPage(navbarPage(
         column(4, verbatimTextOutput("refIntervalOutputF"))
       ),
       fluidRow(
-        column(4, plotOutput("refIntervalPlotBoth")),
+        column(4, withSpinner(plotOutput("refIntervalPlotBoth"),type = 2, 
+                              color = "red", color.background = "white",  
+                              size = 2, hide.ui = FALSE)),
         column(4, plotOutput("refIntervalPlotM")),
         column(4, plotOutput("refIntervalPlotF"))
     )))
@@ -112,6 +116,20 @@ server <- function(input, output, session) {
     findRI(Data = values)
   })
   
+  selected.data <- reactive({  
+    filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
+    uniqueData <- filteredData[!duplicated(filteredData$b_Fallnummer), ]
+  })
+  
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste0(input$analyte, ".tsv")
+    },
+    content = function(file) {
+     vroom_write(selected.data(), file)
+    }
+  )
+  
   refIntervalM <- reactive({
     filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte & Combined_Data_KC$f_Geschl. == "M", ]
     uniqueDataM <- filteredData[!duplicated(filteredData$b_Fallnummer),]
@@ -139,7 +157,7 @@ server <- function(input, output, session) {
   })
   
   output$refIntervalPlotBoth <- renderPlot({
-    plot(refIntervalBoth())
+    plot(refIntervalBoth(), Nhist = 10, showPathol = TRUE)
   })
   
   output$refIntervalPlotM <- renderPlot({
