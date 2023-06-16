@@ -8,11 +8,12 @@ library(memoise)
 library(cachem)
 library(vroom)
 
-# set working directory
+# set working directory-------------------------------------------------------
 setwd("C:/R_local/ReferenceIntRvals")
 
 # Combined_Data_KC <- readRDS("C:/R_local/labStat/Combined_Data_KC.rds")
 
+# shiny app ----------------------------------------------------------------
 shinyOptions(cache = cache_mem(max_size = 5000e6))
 
 # Define UI
@@ -38,11 +39,12 @@ ui <- fluidPage(navbarPage(
     sidebarLayout(sidebarPanel(
       selectInput(
         "analyte",
-        "Select Analyte:",
-        choices = unique(Combined_Data_KC$Bezeichnung)
+        " ",
+        choices = c("Please select an analyte"=" ", unique(Combined_Data_KC$Bezeichnung)),
+        selected = NULL
       ),
-      textOutput("dateRangeOutput"),
-      downloadButton("downloadData", "Download Data")
+      textOutput("dateRangeOutput")#,
+      #downloadButton("downloadData", "Download Data")
     ),
     mainPanel(
       fluidRow(
@@ -82,18 +84,18 @@ server <- function(input, output, session) {
   
   dateRange <- reactive({
     Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
-  })
+  })|> bindCache(input$analyte, cache = "session")
   
   output$dateRangeOutput <- renderText({
     minDate <- min(dateRange()$Datum)
     maxDate <- max(dateRange()$Datum)
-    paste("Date Range:", minDate, "to", maxDate, "\n unique FID")
+    paste("Date Range:", minDate, "to", maxDate, "\n unique FID\nalgorythm: refineR")
   })
   
   output$UnitOutput <- renderText({
     Unit <- unique(dateRange()$EINHEIT)
     paste(input$analyte,"(",Unit,")\nall genders\n \n \n ")
-  })
+  })|> bindEvent(input$analyte)
   
   output$URIOutputM <- renderText({
     low <- unique(dateRange()$`REF_UNTEN M`)
@@ -101,7 +103,7 @@ server <- function(input, output, session) {
     Unit <- unique(dateRange()$EINHEIT)
     paste(input$analyte,"(",Unit,")\nmale\nrecent ZLM ref. int.:\nlower limit",low,"\nupper limit",high)
     
-  })
+  })|> bindEvent(input$analyte)
   
   output$URIOutputF <- renderText({
     lowf <- unique(dateRange()$`REF_UNTEN W`)
@@ -109,7 +111,7 @@ server <- function(input, output, session) {
     Unit <- unique(dateRange()$EINHEIT)
     paste(input$analyte,"(",Unit,")\nfemale\nrecent ZLM ref. int.:\nlower limit",lowf,"\nupper limit",highf)
     
-  })
+  })|> bindEvent(input$analyte)
   
   
   refIntervalBoth <- reactive({
@@ -121,12 +123,12 @@ server <- function(input, output, session) {
     values <- uniqueData$Werte
     # Calculate the reference interval using refineR
     findRI(Data = values)
-  })
+  })|> bindCache(Combined_Data_KC, input$analyte, cache = "session")
   
   selected.data <- reactive({  
     filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte, ]
     uniqueData <- filteredData[!duplicated(filteredData$b_Fallnummer), ]
-  })
+  })|> bindCache(Combined_Data_KC, input$analyte, cache = "session")
   
   output$downloadData <- downloadHandler(
     filename = function() {
@@ -142,7 +144,7 @@ server <- function(input, output, session) {
     uniqueDataM <- filteredData[!duplicated(filteredData$b_Fallnummer),]
     values <- uniqueDataM$Werte
     findRI(Data = values)
-  })
+  })|> bindCache(Combined_Data_KC, input$analyte, cache = "session")
   
   refIntervalF <- reactive({
     filteredData <- Combined_Data_KC[Combined_Data_KC$Bezeichnung == input$analyte & Combined_Data_KC$f_Geschl. == "F", ]
@@ -197,8 +199,8 @@ server <- function(input, output, session) {
     fluidRow(
       lapply(1:length(age_groups), function(i) {
         column(
-          width = 4,
-          withSpinner(verbatimTextOutput(paste0("getRIOutput", i)),type = 1, 
+          width = 3,
+          withSpinner(verbatimTextOutput(paste0("getRIOutput", i)),type = 6, 
                       color = "red", color.background = "white",  
                       size = 2, hide.ui = FALSE)
         )
