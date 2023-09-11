@@ -11,7 +11,7 @@ library(vroom)
 # set working directory-------------------------------------------------------
 setwd("C:/R_local/ReferenceIntRvals")
 
-# Combined_Data_KC <- readRDS("C:/R_local/labStat/Combined_Data_KC.rds")
+Combined_Data_KC <- readRDS("C:/R_local/labStat/Combined_Data_KC.rds")
 
 # shiny app ----------------------------------------------------------------
 shinyOptions(cache = cache_mem(max_size = 5000e6))
@@ -40,7 +40,7 @@ ui <- fluidPage(navbarPage(
       selectInput(
         "analyte",
         " ",
-        choices = c("Please select an analyte"=" ", unique(Combined_Data_KC$Bezeichnung)),
+        choices = c("Please select an analyte"=" ", sort(unique(Combined_Data_KC$Bezeichnung))),
         selected = NULL
       ),
       textOutput("dateRangeOutput")#,
