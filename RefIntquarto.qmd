@@ -1,0 +1,160 @@
+---
+title: "RefIntervalsHTML"
+author: "Oliver Speer"
+format: html
+editor: visual
+---
+# prepare libraries
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(data.table)
+library(refineR)
+
+
+```
+
+## load data with `fread` and sort into a list of `data.tables`
+
+```{r}
+#load data from csv
+c.d.kc <- fread("/home/olli/R_local/labStat/Combined_Data_KC.csv")
+
+# Find all unique values in the 'Bezeichnung' column
+unique_values <- unique(c.d.kc$Bezeichnung)
+
+# Initialize a list to store each subset data.table
+c.d.kc.list <- list()
+
+# Loop through each unique value using data.table's fast subsetting
+for (value in unique_values) {
+    # Subset the original data.table for rows matching the current unique value
+    c.d.kc.list[[value]] <- c.d.kc[Bezeichnung == value, .SD]
+}
+# subset subsets to only include the column "Werte" of the data.table "Kalium"
+data.RI.K <- c.d.kc.list[["Kalium"]][["Werte"]]
+# subset subsets into a vector to only include the column "Werte" of the data.table "Kalium" for f_Geschl. == "F"
+data.RI.K.F <- c.d.kc.list[["Kalium"]][f_Geschl. == "F", .(Werte)]$Werte
+# subset subsets into a vector to only include the column "Werte" of the data.table "Kalium" for f_Geschl. == "M"
+data.RI.K.M <- c.d.kc.list[["Kalium"]][f_Geschl. == "M", .(Werte)]$Werte
+
+# calculate the reference interval for the data.RI.K & data.RI.K.F data.table
+RI.K <- findRI(data.RI.K, NBootstrap = 50, seed = 8173)
+RI.K.M <- findRI(data.RI.K.M, NBootstrap = 50, seed = 8173)
+RI.K.F <- findRI(data.RI.K.F, NBootstrap = 50, seed = 8173)
+
+p.RI.K <- getRI(RI.K)
+p.RI.K.M <- getRI(RI.K.M)
+p.RI.K.F <- getRI(RI.K.F)
+
+# print the reference interval reports
+print.RWDRI(RI.K)
+p.RI.K.F
+p.RI.K.M
+
+# p.RI.K <- getRI(RI.K)
+# p.RI.K.bs <- getRI(RI.K, pointEst = "medianBS")
+# p.RI.K.bs
+# p.RI.K
+# p.RI.K$PointEst[2]
+# print.RWDRI(RI.K)
+
+# plot the reference intervals
+par(mfrow = c(1, 3))
+plot.RWDRI(RI.K, showPathol = T, Nhist = 100, showBSModels = F, pointEst = "fullDataEst", title = "Kalium", xlab = "mmol/l", ylab = "Häufigkeit")
+plot.RWDRI(RI.K.F, showPathol = T, Nhist = 100, showBSModels = F, pointEst = "fullDataEst", title = "Kalium Frauen", xlab = "mmol/l", ylab = "Häufigkeit")
+plot.RWDRI(RI.K.M, showPathol = T, Nhist = 100, showBSModels = F, pointEst = "fullDataEst", title = "Kalium Männer", xlab = "mmol/l", ylab = "Häufigkeit")
+
+```
+
+## set up a table with the reference intervals
+
+```{r}
+# subset c.d.kc.list to only include the column "Werte" of the data.table "Kalium"
+data.RI.K <- c.d.kc.list[["Kalium"]][["Werte"]]
+# subset c.d.kc.list into a vector to only include the column "Werte" of the data.table "Kalium" for f_Geschl. == "F"
+data.RI.K.F <- c.d.kc.list[["Kalium"]][f_Geschl. == "F", .(Werte)]$Werte
+# subset c.d.kc.list into a vector to only include the column "Werte" of the data.table "Kalium" for f_Geschl. == "M"
+data.RI.K.M <- c.d.kc.list[["Kalium"]][f_Geschl. == "M", .(Werte)]$Werte
+
+# calculate the reference interval for the data.RI.K & data.RI.K.F & data.RI.K.M data.table
+RI.K <- findRI(data.RI.K, NBootstrap = 50, seed = 8173)
+RI.K.M <- findRI(data.RI.K.M, NBootstrap = 50, seed = 8173)
+RI.K.F <- findRI(data.RI.K.F, NBootstrap = 50, seed = 8173)
+
+# extract the point estimates and CI from the reference interval calculations
+p.RI.K <- getRI(RI.K)
+p.RI.K.M <- getRI(RI.K.M)
+p.RI.K.F <- getRI(RI.K.F)
+
+
+p.RI.K$PointEst <-  round(p.RI.K$PointEst, 2)
+p.RI.K.F$PointEst <-  round(p.RI.K.F$PointEst, 2)
+p.RI.K.M$PointEst <-  round(p.RI.K.M$PointEst, 2)
+
+# create a data.table with the reference intervals
+DT = data.table(
+  RI = c("Kalium", "Kalium Frauen", "Kalium Männer"),
+  RI_Lower = c(p.RI.K$PointEst[1] , p.RI.K.F$PointEst[1], p.RI.K.M$PointEst[1]),
+  RI_Upper = c(p.RI.K$PointEst[2], p.RI.K.F$PointEst[2], p.RI.K.M$PointEst[2]),
+  RI_Unit = c(rep(unique(c.d.kc.list[["Kalium"]][["EINHEIT"]]), 3)),
+  RI_N = c(length(RI.K$Data), length(RI.K.F$Data), length(RI.K.M$Data))
+)
+
+DT
+
+
+```
+
+## Iteration
+```{r}
+testlist <- c.d.kc.list[1:10]
+# Initialize lists to store results
+all_results <- list()
+female_results <- list()
+male_results <- list()
+final_results <- list()
+
+# Loop through each data.table in c.d.kc.list
+for (name in names(testlist)) {
+    # Subset for all, females, and males
+    data_all <- testlist[[name]][["Werte"]]
+    data_female <- testlist[[name]][f_Geschl. == "F", .(Werte)]$Werte
+    data_male <- testlist[[name]][f_Geschl. == "M", .(Werte)]$Werte
+
+    # Calculate reference intervals
+    RI_all <- findRI(data_all, NBootstrap = 50, seed = 8173)
+    RI_female <- findRI(data_female, NBootstrap = 50, seed = 8173)
+    RI_male <- findRI(data_male, NBootstrap = 50, seed = 8173)
+
+    # Extract point estimates and CI
+    p_RI_all <- getRI(RI_all)
+    p_RI_female <- getRI(RI_female)
+    p_RI_male <- getRI(RI_male)
+
+    # Round the point estimates
+    p_RI_all$PointEst <- round(p_RI_all$PointEst, 2)
+    p_RI_female$PointEst <- round(p_RI_female$PointEst, 2)
+    p_RI_male$PointEst <- round(p_RI_male$PointEst, 2)
+
+    # Store the results
+    all_results[[name]] <- p_RI_all
+    female_results[[name]] <- p_RI_female
+    male_results[[name]] <- p_RI_male
+
+    # Create a data.table for the current data.table's results
+    final_results[[name]] <- data.table(
+        RI = paste(name, c("", "Frauen", "Männer")),
+        RI_Lower = c(p_RI_all$PointEst[1], p_RI_female$PointEst[1], p_RI_male$PointEst[1]),
+        RI_Upper = c(p_RI_all$PointEst[2], p_RI_female$PointEst[2], p_RI_male$PointEst[2]),
+        RI_Unit = rep(unique(testlist[[name]][["EINHEIT"]]), 3),
+        RI_N = c(length(RI_all$Data), length(RI_female$Data), length(RI_male$Data))
+    )
+}
+
+# Combine the final_results into a single data.table
+final_DT <- rbindlist(final_results)
+
+
+```
+
