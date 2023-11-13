@@ -14,7 +14,7 @@ setwd("C:/R_local/ReferenceIntRvals")
 
 # import rds data ---------------------------------------------------------
 
-#Combined_Data_KC <- readRDS("C:/R_local/labStat/Combined_Data_KC.rds")
+Combined_Data_KC <- readRDS("C:/R_local/labStat/Combined_Data_KC.rds")
 
 shinyOptions(cache = cache_mem(max_size = 5000e6))
 
