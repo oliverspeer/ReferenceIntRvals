@@ -134,6 +134,33 @@ server <- function(input, output, session) {
   # Add here the logic to execute the query and further processing based on the selected method
   # Note: This is where you'd incorporate the R-routine provided, making sure to adapt it 
   #       to use `input$method` for dynamic analyte selection.
+ observe({
+   req(input$method)
+  query <-  "SELECT  a.\"Alter\", a.sex, a.Methode, a.Bezeichnung, a.Werte, m.EINHEIT, a.KundenID
+              FROM MeasurementData a
+                JOIN (
+                SELECT DISTINCT Fallnummer
+                FROM MeasurementData
+                 WHERE (Bezeichnung = 'Calcium' AND Werte > 2 AND Werte < 2.6)
+                 OR (Bezeichnung = 'GFR(CKD-EPI)' AND Werte > 60)
+                 OR (Bezeichnung = '25-OH-Vitamin D Total' AND Werte > 17)
+                   GROUP BY Tagesnummer
+                   HAVING COUNT (DISTINCT Bezeichnung) = 3
+                ) b ON a.Fallnummer = b.Fallnummer 
+               JOIN MethodData m ON a.Methode = m.Methode
+                WHERE a.Bezeichnung = ?;"
+  stmt <- dbSendQuery(db, query)
+  dbBind(stmt, list(input$method))
+  queryResult <- dbFetch(stmt)
+  dbClearResult(stmt)
+  
+  if(!is.null(queryResult)){
+    queryResult$Werte <- as.numeric(queryResult$Werte)
+    return(queryResult)
+  }
+ 
+  
+ })
 }
 
 # Run the application
