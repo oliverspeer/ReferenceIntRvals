@@ -1,0 +1,208 @@
+---
+title: "Referenz Intervalle ApoB"
+author: "Oliver Speer"
+format: html
+editor: visual
+---
+# ApoB Referenze Intervalle
+
+
+```{r, lib_preparation, warning=FALSE, message=FALSE}
+
+
+# Vector of libraries
+packages <- c("readxl", "data.table", "tidyverse", "zoo", "plotly", "lubridate", "DBI", "RSQLite", "refineR", "rstudioapi")
+
+# Loop to check if libraries are installed and install them if not and load them
+for (package in packages) {
+  if (!(package %in% installed.packages())) {
+    install.packages(package, dependencies = TRUE)
+  }
+  library(package, character.only = TRUE)
+}
+
+
+```
+
+
+
+```{r, set working dir,  warning=FALSE, message=FALSE}
+# set working directory ----------------------------------------------------
+
+# get the path of the current project
+project_directory <- getActiveProject()
+
+# if running in an RStudio project, set the working directory to the project directory
+# If not running in an RStudio project, print a message
+if (!is.null(project_directory)) {
+  setwd(project_directory)
+} else {
+  print("This R session is not running within an RStudio Project.")
+}
+```
+
+
+```{r, call db con,  warning=FALSE, message=FALSE}
+
+
+# Function to detect the operating system and return the corresponding database path
+getDatabasePath <- function() {
+  # Detect operating system
+  os <- Sys.info()["sysname"]
+  
+  # Set the path based on the operating system
+  if (os == "Linux") {
+    # Path for Linux (Ubuntu)
+    path <- "/home/olli/R_local/labStat/ClinicalChemistry_test.db"
+  } else if (os == "Windows") {
+    # Path for Windows
+    # Adjust the path as necessary for your Windows setup
+    path <- "C:/R_local/labStat/ClinicalChemistry_test.db"
+  } else {
+    stop("Operating system not supported")
+  }
+  
+  return(path)
+}
+
+# set database directory
+db.wd <- getDatabasePath()
+
+# Connect to the database
+con <- dbConnect(SQLite(), dbname = db.wd)
+
+# List the tables in the database
+dbListTables(con)
+```
+
+
+für normale Cholesterin und normale Triglyceride
+```{r RIApoB, warning=FALSE, message=FALSE}
+query.result.AB <- dbGetQuery(
+  con, 
+  "SELECT  a.\"Alter\", a.sex, a.Methode, a.Bezeichnung, a.Werte, m.EINHEIT, a.KundenID
+   FROM MeasurementData a
+   JOIN (
+     SELECT DISTINCT Fallnummer
+     FROM MeasurementData
+      WHERE (Bezeichnung = 'Cholesterin' AND  Werte < 5)
+      OR (Bezeichnung = 'Triglyceride' AND Werte < 2)
+      OR (Bezeichnung = 'GFR(CKD-EPI)' AND Werte > 60)
+     GROUP BY Tagesnummer
+      HAVING COUNT (DISTINCT Bezeichnung) = 3
+       ) b ON a.Fallnummer = b.Fallnummer 
+    JOIN MethodData m ON a.Methode = m.Methode
+    WHERE a.Bezeichnung = 'A-B';"
+)
+
+query.result.AB$Werte <- as.numeric(query.result.AB$Werte)
+
+RIpop.AB <- query.result.AB$Werte |> na.omit()
+RIpop.AB.f <- query.result.AB$Werte[query.result.AB$sex == 1] |> na.omit()
+RIpop.AB.m <- query.result.AB$Werte[query.result.AB$sex == 0] |> na.omit()
+
+# calculate reference intervals
+AB.RI <- findRI(RIpop.AB, model = "modBoxCox", NBootstrap = 250, seed = 8173 )
+AB.RI.f <- findRI(RIpop.AB.f, model = "modBoxCox", NBootstrap = 250, seed = 8173 )
+AB.RI.m <- findRI(RIpop.AB.m, model = "modBoxCox", NBootstrap = 250, seed = 8173 )
+
+# Save the results
+# write the path
+path.b <- paste0(project_directory, "/kRI_", Sys.Date(), ".RData")
+save(AB.RI, file = path.b)
+
+path.f <- paste0(project_directory, "/kRI_f", Sys.Date(), ".RData")
+save(AB.RI.f, file = path.f)
+
+path.m <- paste0(project_directory, "/kRI_m", Sys.Date(), ".RData")
+save(AB.RI.m, file = path.m)
+
+
+
+
+RI.AB <- getRI(AB.RI)
+RI.AB.f <- getRI(AB.RI.f)
+RI.AB.m <- getRI(AB.RI.m)
+
+RI.AB$n <- length(RIpop.AB)
+RI.AB.f$n <- length(RIpop.AB.f)
+RI.AB.m$n <- length(RIpop.AB.m)
+
+
+RI.AB$Geschlecht <- "both"
+RI.AB.f$Geschlecht <- "female"
+RI.AB.m$Geschlecht <- "male"
+
+RI.AB$file <- path.b
+RI.AB.f$file <- path.f
+RI.AB.m$file <- path.m
+
+
+
+
+
+# plot the reference intervals
+png("RI_ApoB.png", width = 800, height = 600)
+plot(AB.RI, Nhist = 25, showPathol = TRUE, showCI = TRUE, RIperc = c(0.025, 0.5, 0.975), pointEst = "medianBS", 
+     title  = paste("Estimated Reference Interval", unique(query.result.AB$Bezeichnung), unique(RI.AB$Geschlecht)), 
+     xlab = paste(unique(query.result.AB$Bezeichnung)," [", unique(query.result.AB$EINHEIT)," ]"))
+dev.off()
+
+RI.AB$plot <- list(readBin("RI_ApoB.png", "raw", file.info("RI_ApoB.png")$size))
+
+
+
+png("RI_kalium_f.png", width = 800, height = 600)
+plot(AB.RI.f, Nhist = 100, showPathol = TRUE, showCI = TRUE, RIperc = c(0.025, 0.5, 0.975), pointEst = "medianBS", title  = "Estimated Reference Interval Kal", xlab = "Kalium [mmol/L]")
+dev.off()
+
+RI.AB.f$plot <- list(readBin("RI_kalium_f.png", "raw", file.info("RI_kalium_f.png")$size))
+
+
+
+
+
+png("RI_kalium_m.png", width = 800, height = 600)
+plot(AB.RI.m, Nhist = 100, showPathol = TRUE, showCI = TRUE, RIperc = c(0.025, 0.5, 0.975), pointEst = "medianBS", title  = "Estimated Reference Interval Kalium", xlab = "Kalium [mmol/L]")
+dev.off()
+
+RI.AB.m$plot <- list(readBin("RI_kalium_m.png", "raw", file.info("RI_kalium_m.png")$size))
+
+
+RI <- rbind(RI.AB, RI.AB.f, RI.AB.m)
+RI <- RI |> mutate(Bezeichnung = unique(query.result.AB$Bezeichnung),
+                   Methode = unique(query.result.AB$Methode))
+ 
+dbExecute(con, 
+          "CREATE TABLE IF NOT EXISTS RefineRData (
+          ReferenzID INTEGER PRIMARY KEY AUTOINCREMENT,
+          Bezeichnung TEXT, 
+          Methode INTEGER,
+          Percentile REAL,
+          PointEst REAL,
+          CILow REAL,
+          CIHigh REAL,
+          n INTEGER,
+          Geschlecht TEXT,
+          plot BLOB,
+          file TEXT,
+          FOREIGN KEY(Methode) REFERENCES MethodData(Methode)
+          )")
+
+dbWriteTable(con, "RefineRData", RI, row.names = FALSE, append = TRUE)
+                  
+
+# reconstitue the plot from the binary data
+img <- readPNG(plot.bi)
+plot(1, type="n", xlab="", ylab="", xlim=c(0,1), ylim=c(0,1), axes=FALSE)
+rasterImage(img, 0, 0, 1, 1)
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
